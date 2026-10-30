@@ -1,0 +1,18 @@
+# build artifacts
+build/
+dist/
+
+# test binaries / coverage
+*.test
+*.out
+coverage.*
+
+# ZCode session state
+.zcode/
+
+# macOS
+.DS_Store
+
+# local runtime state never belongs here
+# (the real state lives in ~/.local/state/pmax at runtime)
+state/

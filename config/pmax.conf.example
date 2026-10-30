@@ -1,0 +1,59 @@
+# pmax configuration — copied to ~/.config/pmax/pmax.conf on install.
+# Format: KEY=value, `#` comments, ~ and $HOME are expanded, lists are
+# space-separated. Edit freely; run `pmax doctor` afterwards.
+
+# ── Safety ──────────────────────────────────────────────────────────────────
+# Days a file must sit in Downloads before sweep proposes it as stale.
+STALE_DAYS=30
+# Days a quarantined file is kept before the nightly watcher purges it.
+QUARANTINE_RETENTION_DAYS=14
+# Minimum size (MB) for a file to enter the checksum duplicate scan.
+DUPES_MIN_SIZE_MB=1
+# If true, the approver offers an [a]pprove-rest shortcut. OFF on purpose:
+# every deletion and move is approved one by one.
+ALLOW_BATCH_APPROVE=false
+
+# ── Destinations (PARA) ─────────────────────────────────────────────────────
+DEST_INBOX=$HOME/Documents/02-Resources/Inbox
+DEST_ARCHIVE=$HOME/Documents/03-Archive
+DEST_INSTALLERS=$HOME/Documents/03-Archive/Installers
+DEST_STALE=$HOME/Documents/03-Archive/Downloads-Stale
+DEST_SCREENSHOTS=$HOME/Pictures/Screenshots
+DEST_PROJECTS=$HOME/projects
+DEST_SCATTER=$HOME/Documents/02-Resources/Scatter
+
+# ── Zones pmax proposes changes inside (Desktop + Downloads) ────────────────
+PMAX_ZONES=$HOME/Desktop $HOME/Downloads
+
+# ── Keep-list: never staged, never moved, never deleted (glob, * crosses /) ─
+PMAX_KEEP_LIST=$HOME/Downloads/productivity-mac-max* $HOME/projects* $HOME/Documents/* $HOME/Pictures/* $HOME/Music/* $HOME/Movies/* $HOME/Library* $HOME/Applications* $HOME/Public* $HOME/Certificates* $HOME/Alif* $HOME/TahuAI* $HOME/.*
+
+# ── Notifications / schedules (install.sh bakes these into launchd agents) ─
+NOTIFY_SOUND=Glass
+REMIND_MORNING_HOUR=9
+REMIND_EVENING_HOUR=21
+REMIND_WEEKLY_DAY=0
+REMIND_WEEKLY_HOUR=18
+WATCHER_HOUR=3
+
+# ── MLX AI sidecar (opt-in: `pmax ai setup`) ────────────────────────────────
+AI_VENV=$HOME/.local/state/pmax/venv
+AI_PORT=8765
+AI_EMBED_MODEL=mlx-community/bge-small-en-v1.5
+AI_CHAT_MODEL=mlx-community/Qwen2.5-3B-Instruct-4bit
+# Dirs whose files get embedded into the colgrep index.
+INDEX_ROOTS=$HOME/Desktop $HOME/Downloads $HOME/Documents $HOME/projects $HOME/Alif
+
+# ── Laya — fast typed-decision engine (github.com/NandhaKishorM/laya) ───────
+# Single-pass choice/yes-no decisions (~ms) with abstention. Powers
+# `organize --smart`, review-queue junk-sorting, and the improve safety gate.
+LAYA_ENABLED=auto            # auto | true | false
+LAYA_MIN_CONFIDENCE=0.90     # below this, pmax abstains and flags for review
+# Labels laya may choose among for "Other" files in --smart mode.
+LAYA_TYPE_LABELS=Documents Receipts-Invoices Certificates Tickets Forms Code-Archive Media Notes Unsorted
+
+# ── Self-improvement ────────────────────────────────────────────────────────
+LEARNED_MAX_RULES=50
+# Learned rules are classification-only: destinations must start with one of
+# these prefixes or the rule is rejected at accept-time AND at load-time.
+LEARNED_ALLOWED_PREFIXES=$HOME/Documents/ $HOME/Pictures/ $HOME/Music/ $HOME/Movies/

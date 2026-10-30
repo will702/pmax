@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 2.0//EN" "http://www.apple.com/DTDs/PropertyList-2.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key><string>com.pmax.morning</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>__PMAX_BIN__</string>
+        <string>remind</string>
+        <string>morning</string>
+    </array>
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key><integer>9</integer>
+        <key>Minute</key><integer>0</integer>
+    </dict>
+    <key>StandardOutPath</key><string>__PMAX_STATE__/logs/agent-morning.log</string>
+    <key>StandardErrorPath</key><string>__PMAX_STATE__/logs/agent-morning.log</string>
+</dict>
+</plist>

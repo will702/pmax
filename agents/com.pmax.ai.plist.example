@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 2.0//EN" "http://www.apple.com/DTDs/PropertyList-2.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key><string>com.pmax.ai</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>__PMAX_BIN__</string>
+        <string>ai</string>
+        <string>start</string>
+    </array>
+    <key>RunAtLoad</key><true/>
+    <key>KeepAlive</key>
+    <false/>
+    <key>StandardOutPath</key><string>__PMAX_STATE__/logs/agent-ai.log</string>
+    <key>StandardErrorPath</key><string>__PMAX_STATE__/logs/agent-ai.log</string>
+</dict>
+</plist>
