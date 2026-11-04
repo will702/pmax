@@ -10,7 +10,9 @@ how elegant:
 
 1. **Every file move and deletion goes through the per-item approver.** No
    bulk-apply flags, no scheduled execution, no auto-approve on TTY stdin.
-   EOF and empty answers stop execution (fail-safe).
+   EOF and empty answers stop execution (fail-safe). The approver is the
+   terminal loop OR `approve-one`/`reject-one` (one row id per call, used by
+   the SecondBrain UI) — never more than one item per decision.
 2. **DELETE means quarantine**, never `os.Remove` on user files, with
    manifest-undo and retention purge handled only by the watcher.
 3. **Learned/model rules are classification-only.** Destinations must pass the

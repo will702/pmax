@@ -26,6 +26,8 @@ func sandbox(t *testing.T) string {
 	StageOnly = false
 	currentRun = ""
 	Cfg = defaults()
+	Cfg.AIBackend = "off"                         // never talk to a real ~/ai server
+	notifyHook = func(string, string) {}         // never post real notifications
 	Cfg.AIVenv = filepath.Join(CfgState, "venv") // keep away from real venv
 	for _, d := range []string{CfgHome, CfgState, CfgState + "/logs", CfgState + "/staged",
 		CfgState + "/manifests", CfgState + "/quarantine", CfgState + "/learning", CfgState + "/run"} {

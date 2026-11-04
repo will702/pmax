@@ -44,6 +44,12 @@ func stageZoneSweep(p *Plan, zone, label string) {
 			strings.HasSuffix(name, ".download"):
 			p.Stage(Action{Kind: "DELETE", Src: f, Reason: "junk/stalled-download"})
 
+		// 2b) Installers you already ran (Downloads only)
+		case label == "downloads" && isInstaller(name) && daysOld(f) > Cfg.InstallerDays:
+			// .dmg can be a vault or backup image: flag for review, never a quick win.
+			p.Stage(Action{Kind: "DELETE", Src: f, Flag: "review",
+				Reason: fmt.Sprintf("installer/>%dd", Cfg.InstallerDays)})
+
 		// 3) Stale loose files (Downloads only)
 		case label == "downloads" && daysOld(f) > Cfg.StaleDays:
 			p.Stage(Action{Kind: "DELETE", Src: f,
@@ -61,6 +67,11 @@ func stageZoneSweep(p *Plan, zone, label string) {
 			}
 		}
 	}
+}
+
+func isInstaller(name string) bool {
+	ext := strings.ToLower(filepath.Ext(name))
+	return ext == ".dmg" || ext == ".pkg"
 }
 
 // walkDepth visits files up to maxDepth levels under root.

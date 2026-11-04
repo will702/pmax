@@ -19,8 +19,12 @@ const usage = `pmax — Mac productivity framework (approve-everything safety)
   pmax dupes [dir]             stage checksum-duplicate quarantines (all but newest)
   pmax projects [report|move]  home-root consolidation into ~/projects/
   pmax pending                 list staged-but-unapproved actions
+  pmax pending --json          staged rows with stable ids (for the SecondBrain hub)
+  pmax status --json           clutter, pending, quarantine, AI health (for the hub)
   pmax approve [plan]          review a staged plan, item by item
+  pmax approve-one|reject-one <plan> <row-id>   decide exactly one row (hub UI gate)
   pmax review                  review only flagged/ambiguous items
+  pmax tidy                    2-minute declutter: the 5 biggest safe wins, one by one
   pmax undo [--run id]         reverse the last approved run
   pmax remind [kind|test]      send a briefing notification
   pmax ai setup|start|stop|status|ensure   MLX sidecar lifecycle
@@ -92,7 +96,18 @@ func run(args []string) int {
 	case "projects":
 		return cmdProjects(args)
 	case "pending":
+		if len(args) > 0 && args[0] == "--json" {
+			return cmdPendingJSON()
+		}
 		return cmdPending()
+	case "tidy":
+		return cmdTidy(args)
+	case "status":
+		return cmdStatus(args)
+	case "approve-one":
+		return cmdApproveOne(args)
+	case "reject-one":
+		return cmdRejectOne(args)
 	case "approve":
 		return cmdApprove(args)
 	case "review":

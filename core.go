@@ -31,6 +31,8 @@ var (
 // `~` and `$HOME` expanded, optional quotes.
 type Config struct {
 	StaleDays                int
+	InstallerDays            int // .dmg/.pkg older than this are staged for quarantine
+	BusyNotifyMin            int // on a heavy day, only notify when at least this many items wait
 	QuarantineRetentionDays  int
 	DupesMinSizeMB           int
 	AllowBatchApprove        bool
@@ -53,6 +55,8 @@ type Config struct {
 	AIPort                   int
 	AIEmbedModel             string
 	AIChatModel              string
+	AIBackend                string // auto | localai | sidecar | off
+	LocalAIURL               string // shared ~/ai OpenAI-compatible server
 	IndexRoots               []string
 	LayaEnabled              string // auto | true | false
 	LayaMinConfidence        float64
@@ -65,6 +69,8 @@ func defaults() Config {
 	h := UserHome
 	return Config{
 		StaleDays:               30,
+		InstallerDays:           3,
+		BusyNotifyMin:           15,
 		QuarantineRetentionDays: 14,
 		DupesMinSizeMB:          1,
 		AllowBatchApprove:       false,
@@ -92,6 +98,8 @@ func defaults() Config {
 		AIPort:            8765,
 		AIEmbedModel:      "mlx-community/bge-small-en-v1.5",
 		AIChatModel:       "mlx-community/Qwen2.5-3B-Instruct-4bit",
+		AIBackend:         "auto",
+		LocalAIURL:        "http://127.0.0.1:8080",
 		IndexRoots:        []string{h + "/Desktop", h + "/Downloads", h + "/Documents", h + "/projects", h + "/Alif"},
 		LayaEnabled:       "auto",
 		LayaMinConfidence: 0.90,
@@ -176,6 +184,10 @@ func setConfig(k, v string) {
 	switch k {
 	case "STALE_DAYS":
 		Cfg.StaleDays = atoi(v)
+	case "INSTALLER_DAYS":
+		Cfg.InstallerDays = atoi(v)
+	case "BUSY_NOTIFY_MIN":
+		Cfg.BusyNotifyMin = atoi(v)
 	case "QUARANTINE_RETENTION_DAYS":
 		Cfg.QuarantineRetentionDays = atoi(v)
 	case "DUPES_MIN_SIZE_MB":
@@ -220,6 +232,10 @@ func setConfig(k, v string) {
 		Cfg.AIEmbedModel = v
 	case "AI_CHAT_MODEL":
 		Cfg.AIChatModel = v
+	case "AI_BACKEND":
+		Cfg.AIBackend = v
+	case "LOCALAI_URL":
+		Cfg.LocalAIURL = v
 	case "INDEX_ROOTS":
 		Cfg.IndexRoots = fields(v)
 	case "LAYA_ENABLED":
@@ -391,9 +407,12 @@ func (p *Plan) Save() error {
 	return os.WriteFile(p.Path, []byte(b.String()), 0o644)
 }
 
+var planSeq int
+
 func newPlan(prefix string) *Plan {
+	planSeq++ // two plans in the same second must not share (and overwrite) one file
 	p := &Plan{Path: filepath.Join(CfgState, "staged",
-		fmt.Sprintf("%s-%s-%d.tsv", prefix, time.Now().Format("20060102-150405"), os.Getpid()))}
+		fmt.Sprintf("%s-%s-%d-%d.tsv", prefix, time.Now().Format("20060102-150405"), os.Getpid(), planSeq))}
 	return p
 }
 
@@ -549,7 +568,14 @@ func signal(event, action, rule, src, dst string) {
 
 // ── Notifications ───────────────────────────────────────────────────────────
 
+// notifyHook lets tests observe notifications instead of posting real ones.
+var notifyHook func(title, body string)
+
 func notify(title, body string) {
+	if notifyHook != nil {
+		notifyHook(title, body)
+		return
+	}
 	quote := func(s string) string { return strings.ReplaceAll(s, `"`, `\"`) }
 	script := fmt.Sprintf(`display notification "%s" with title "%s" sound name "%s"`,
 		quote(body), quote(title), Cfg.NotifySound)
