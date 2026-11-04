@@ -38,7 +38,7 @@ func typeFor(name string) string {
 }
 
 func isScreenshot(name string) bool {
-	for _, p := range []string{"Screenshot ", "Screen Shot ", "Screenshot", "Screen Shot", "Cuplikan Layar"} {
+	for _, p := range []string{"Screenshot ", "Screen Shot ", "Screenshot", "Screen Shot", "Cuplikan Layar", "CleanShot "} {
 		if strings.HasPrefix(name, p) {
 			return true
 		}

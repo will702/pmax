@@ -61,7 +61,62 @@ func aiURL(path string) string {
 	return fmt.Sprintf("http://127.0.0.1:%d%s", Cfg.AIPort, path)
 }
 
+// useLocalAI: the shared ~/ai server is preferred (one model download, less RAM).
+func useLocalAI() bool {
+	switch Cfg.AIBackend {
+	case "off", "sidecar":
+		return false
+	}
+	client := http.Client{Timeout: 2 * time.Second}
+	resp, err := client.Get(Cfg.LocalAIURL + "/v1/models")
+	if err != nil {
+		return false
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		return false
+	}
+	// Any dev server can answer 200 on :8080 — require an OpenAI-style model list
+	// before we send it file excerpts.
+	var m struct {
+		Data []json.RawMessage `json:"data"`
+	}
+	return json.NewDecoder(resp.Body).Decode(&m) == nil && m.Data != nil
+}
+
+// embedTag identifies the embedding model so the index can detect a switch.
+func embedTag() string {
+	if useLocalAI() {
+		return "localai:embedding"
+	}
+	return "sidecar:" + Cfg.AIEmbedModel
+}
+
+// openAIPost posts JSON to the shared server and decodes the reply.
+func openAIPost(path string, req, out any) error {
+	body, _ := json.Marshal(req)
+	client := http.Client{Timeout: 5 * time.Minute}
+	resp, err := client.Post(Cfg.LocalAIURL+path, "application/json", bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		return fmt.Errorf("localai %s: HTTP %d", path, resp.StatusCode)
+	}
+	return json.NewDecoder(resp.Body).Decode(out)
+}
+
 func aiUp() bool {
+	if Cfg.AIBackend == "off" {
+		return false
+	}
+	if useLocalAI() {
+		return true
+	}
+	if Cfg.AIBackend == "localai" {
+		return false
+	}
 	client := http.Client{Timeout: 2 * time.Second}
 	resp, err := client.Get(aiURL("/health"))
 	if err != nil {
@@ -74,6 +129,21 @@ func aiUp() bool {
 // ── HTTP clients ────────────────────────────────────────────────────────────
 
 func embedTexts(texts []string) ([][]float32, error) {
+	if useLocalAI() {
+		var out struct {
+			Data []struct {
+				Embedding []float32 `json:"embedding"`
+			} `json:"data"`
+		}
+		if err := openAIPost("/v1/embeddings", map[string]any{"model": "embedding", "input": texts}, &out); err != nil {
+			return nil, err
+		}
+		vecs := make([][]float32, len(out.Data))
+		for i, d := range out.Data {
+			vecs[i] = d.Embedding
+		}
+		return vecs, nil
+	}
 	body, _ := json.Marshal(map[string]any{"texts": texts})
 	resp, err := http.Post(aiURL("/embed"), "application/json", bytes.NewReader(body))
 	if err != nil {
@@ -100,6 +170,22 @@ type chatMessage struct {
 }
 
 func chat(messages []chatMessage, maxTokens int) (string, error) {
+	if useLocalAI() {
+		var out struct {
+			Choices []struct {
+				Message chatMessage `json:"message"`
+			} `json:"choices"`
+		}
+		err := openAIPost("/v1/chat/completions", map[string]any{
+			"model": "fast", "messages": messages, "max_tokens": maxTokens, "temperature": 0.2}, &out)
+		if err != nil {
+			return "", err
+		}
+		if len(out.Choices) == 0 {
+			return "", fmt.Errorf("localai: empty reply")
+		}
+		return out.Choices[0].Message.Content, nil
+	}
 	body, _ := json.Marshal(map[string]any{
 		"messages": messages, "max_tokens": maxTokens, "temperature": 0.2,
 	})
@@ -371,6 +457,11 @@ func cmdAI(args []string) int {
 }
 
 func aiSetup() int {
+	if useLocalAI() {
+		fmt.Println("✓ shared ~/ai server is running at", Cfg.LocalAIURL, "— nothing to download.")
+		fmt.Println("  (set AI_BACKEND=sidecar to install pmax's own MLX models instead)")
+		return 0
+	}
 	// 1) uv venv
 	if _, err := exec.LookPath("uv"); err != nil {
 		die("uv not found — brew install uv")

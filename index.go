@@ -176,6 +176,16 @@ func excerptFor(path string) string {
 func cmdIndex(args []string) int {
 	full := len(args) > 0 && args[0] == "--full"
 	records := loadIndex()
+	// Embedding model changed (e.g. sidecar 384-d -> shared ~/ai 1024-d):
+	// old vectors are meaningless, so rebuild. Only when AI is up, so a
+	// keyword-only run never discards good vectors.
+	tag, reembedAll := "", false
+	if aiUp() {
+		tag = embedTag()
+		if old, _ := os.ReadFile(filepath.Join(CfgState, "index.model")); string(old) != tag {
+			reembedAll = true // keep existing records; replace vectors only as new ones arrive
+		}
+	}
 	if full {
 		records = map[string]*indexRecord{}
 	}
@@ -220,8 +230,20 @@ func cmdIndex(args []string) int {
 		}
 	}
 
+	if reembedAll {
+		queued := map[*indexRecord]bool{}
+		for _, r := range changed {
+			queued[r] = true
+		}
+		for _, r := range records {
+			if !queued[r] {
+				changed = append(changed, r)
+			}
+		}
+	}
+
 	// Embed changed records in batches (skip silently when sidecar is down).
-	embedded, skippedVec := 0, 0
+	embedded, skippedVec, embDim := 0, 0, 0
 	if len(changed) > 0 && aiUp() {
 		for i := 0; i < len(changed); i += embedBatch {
 			end := i + embedBatch
@@ -241,6 +263,7 @@ func cmdIndex(args []string) int {
 			for j, r := range batch {
 				if j < len(vecs) {
 					r.Vec = vecs[j]
+					embDim = len(vecs[j])
 					embedded++
 				}
 			}
@@ -251,6 +274,15 @@ func cmdIndex(args []string) int {
 
 	if err := saveIndex(records); err != nil {
 		die("cannot write index: %v", err)
+	}
+	complete := embedded > 0
+	for _, r := range records {
+		if len(r.Vec) != embDim {
+			complete = false // some record still carries an old-model (or no) vector
+		}
+	}
+	if tag != "" && complete {
+		os.WriteFile(filepath.Join(CfgState, "index.model"), []byte(tag), 0o644)
 	}
 	fmt.Printf("Index: %d file(s) (%d changed, %d embedded", len(records), len(changed), embedded)
 	if skippedVec > 0 {

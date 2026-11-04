@@ -23,22 +23,19 @@ func cmdRemind(args []string) int {
 	switch kind {
 	case "test":
 		notify("PMAX — test", "Notifications work. Your Mac is about to get organized.")
-	case "morning":
+	case "morning", "evening":
+		if isHeavyDay() {
+			body := fmt.Sprintf("Heavy day — skip the deep clean. 2-minute tidy: pmax tidy (%d staged)", s.PendingActions)
+			notify("PMAX — Light touch today", body)
+			fmt.Println(body)
+			return 0
+		}
+		if kind == "evening" {
+			return remindEvening()
+		}
 		body := fmt.Sprintf("Desktop: %d screenshots waiting. Downloads: %d stale, %d dupes. %d actions staged for approval.",
 			s.DeskShots, s.DLStale, s.DLDupName, s.PendingActions)
 		notify("PMAX — Morning Briefing", body)
-		fmt.Println(body)
-	case "evening":
-		today := 0
-		for _, z := range []string{UserHome + "/Desktop", UserHome + "/Downloads"} {
-			for _, f := range looseFiles(z) {
-				if st, err := os.Stat(f); err == nil && st.ModTime().After(time.Now().AddDate(0, 0, -1)) {
-					today++
-				}
-			}
-		}
-		body := fmt.Sprintf("%d new file(s) on Desktop/Downloads today. 2-min tidy: pmax sweep", today)
-		notify("PMAX — Evening Tidy", body)
 		fmt.Println(body)
 	case "weekly":
 		body := fmt.Sprintf("Clutter score %d/10 · %d stray dirs at ~ · %d actions staged. Deep clean: pmax report --big && pmax improve",
@@ -48,6 +45,21 @@ func cmdRemind(args []string) int {
 	default:
 		die("usage: pmax remind [morning|evening|weekly|test]")
 	}
+	return 0
+}
+
+func remindEvening() int {
+	today := 0
+	for _, z := range []string{UserHome + "/Desktop", UserHome + "/Downloads"} {
+		for _, f := range looseFiles(z) {
+			if st, err := os.Stat(f); err == nil && st.ModTime().After(time.Now().AddDate(0, 0, -1)) {
+				today++
+			}
+		}
+	}
+	body := fmt.Sprintf("%d new file(s) on Desktop/Downloads today. 2-min tidy: pmax sweep", today)
+	notify("PMAX — Evening Tidy", body)
+	fmt.Println(body)
 	return 0
 }
 
@@ -72,7 +84,11 @@ func cmdWatcher(args []string) int {
 
 	total := org.Count() + swp.Count()
 	logf("INFO", "watcher staged %d proposal(s), purged %d quarantined file(s)", total, purged)
-	if total > 0 {
+	switch {
+	case total == 0:
+	case isHeavyDay() && total < Cfg.BusyNotifyMin:
+		logf("INFO", "watcher: heavy day — %d staged, notification held", total)
+	default:
 		notify("PMAX — items await your approval",
 			fmt.Sprintf("%d proposal(s) staged overnight (nothing was moved). Review: pmax approve", total))
 	}
